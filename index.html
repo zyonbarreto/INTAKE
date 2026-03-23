@@ -605,6 +605,19 @@ html, body {
   </div>
 </div>
 
+<!-- API KEY SETUP SCREEN -->
+<div id="keyScreen" style="display:none;position:fixed;inset:0;background:var(--black);z-index:999;flex-direction:column;align-items:center;justify-content:center;padding:32px;">
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:8px;margin-bottom:8px;">INTAKE</div>
+  <div style="font-size:10px;color:var(--g4);letter-spacing:3px;text-transform:uppercase;margin-bottom:40px;">One-time setup</div>
+  <div style="width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px;">
+    <div style="font-size:10px;color:var(--g4);letter-spacing:1px;text-transform:uppercase;">Anthropic API Key</div>
+    <input id="keyInput" type="password" placeholder="sk-ant-api03-..." style="background:var(--g1);border:1px solid var(--g3);color:var(--white);font-family:'Space Mono',monospace;font-size:14px;padding:14px;outline:none;width:100%;border-radius:0;-webkit-appearance:none;" />
+    <div style="font-size:10px;color:var(--g3);line-height:1.6;">Get your key at console.anthropic.com → API Keys. Saved only on this device, never uploaded anywhere.</div>
+    <div id="keyError" style="font-size:10px;color:var(--danger);display:none;">Invalid key — make sure it starts with sk-ant-</div>
+    <button onclick="saveApiKey()" style="padding:14px;background:var(--white);border:none;color:var(--black);font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:4px;cursor:pointer;width:100%;border-radius:0;-webkit-appearance:none;margin-top:4px;">SAVE & CONTINUE</button>
+  </div>
+</div>
+
 <!-- GOALS MODAL (bottom sheet) -->
 <div class="overlay" id="overlay" style="display:none" onclick="overlayTap(event)">
   <div class="sheet" id="sheet">
@@ -712,12 +725,35 @@ const S = {
 };
 
 // ── INIT ──────────────────────────────────────────────────
+// ── API KEY CHECK ─────────────────────────────────────────
+function checkApiKey() {
+  const key = localStorage.getItem('intakeApiKey');
+  if (!key) {
+    document.getElementById('keyScreen').style.display = 'flex';
+    return false;
+  }
+  return true;
+}
+
+function saveApiKey() {
+  const input = document.getElementById('keyInput');
+  const key = input.value.trim();
+  if (!key.startsWith('sk-ant-')) {
+    document.getElementById('keyError').style.display = 'block';
+    return;
+  }
+  localStorage.setItem('intakeApiKey', key);
+  document.getElementById('keyScreen').style.display = 'none';
+  if (!S.goals) setTimeout(openModal, 300);
+}
+
 (function init() {
   document.getElementById('topDate').textContent = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}).toUpperCase();
   Object.values(S.meals).flat().forEach(add);
   renderLog();
   renderChips();
   updateSummary();
+  if (!checkApiKey()) return;
   if (!S.goals) setTimeout(openModal, 400);
 })();
 
@@ -799,7 +835,7 @@ async function callClaude(text, meal) {
 Return ONLY valid JSON, no markdown, no backticks.
 {"items":[{"name":"Food name","quantity":"serving","meal":"${meal}","calories":0,"protein":0,"carbs":0,"fat":0,"fiber":0,"sodium":0,"sugar":0,"saturated_fat":0,"cholesterol":0}],"summary":"1-line confirmation"}
 Rules: realistic values, full quantity, brand-accurate if given, no nulls, integers or 1 decimal.`;
-  const API_KEY = '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';
+  const API_KEY = localStorage.getItem('intakeApiKey');
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method:'POST', headers:{'Content-Type':'application/json','x-api-key':API_KEY,'anthropic-version':'2023-06-01'},
     body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1000, system:sys, messages:[{role:'user',content:`Meal:${meal} Food:${text}`}] })
